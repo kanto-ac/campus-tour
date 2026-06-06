@@ -2,6 +2,8 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎧 キャンパスツアー</title>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -83,6 +85,73 @@ h1 { font-size: 1.5rem; margin-bottom: 6px; }
 .emoji-big { font-size: 4rem; margin-bottom: 16px; }
 .info { font-size: 0.75rem; opacity: 0.5; margin-top: 8px; line-height: 1.5; }
 .hidden { display: none !important; }
+
+/* ===== ユーティリティボタン（ロック・全画面） ===== */
+.util-buttons {
+  display: none; gap: 10px; margin-top: 12px;
+}
+.btn-util {
+  flex: 1; padding: 12px; border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 14px; font-size: 0.9rem; font-weight: 700;
+  cursor: pointer;
+  background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6);
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  transition: all 0.3s ease;
+}
+.btn-util:hover { background: rgba(255,255,255,0.15); }
+.btn-util.active {
+  background: rgba(255,255,255,0.2);
+  border-color: rgba(255,255,255,0.4);
+  color: #fff;
+}
+
+/* ===== 画面ロック ===== */
+.lock-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex; justify-content: center; align-items: center;
+  user-select: none; -webkit-user-select: none;
+  cursor: pointer;
+}
+.lock-message {
+  color: #fff; text-align: center;
+  font-size: 1.8rem; font-weight: 700;
+  animation: lock-pulse 2s infinite;
+}
+.lock-sub {
+  font-size: 1rem; font-weight: 400; opacity: 0.6;
+  display: block; margin-top: 12px;
+}
+@keyframes lock-pulse {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ===== スマホ表示を大きく ===== */
+@media (max-width: 600px) {
+  body { padding: 10px; }
+  .card { padding: 28px 20px; border-radius: 20px; }
+  .emoji-big { font-size: 5rem; }
+  h1 { font-size: 1.8rem; }
+  .subtitle { font-size: 1rem; }
+  .input-group label { font-size: 1rem; }
+  .code-inputs { gap: 12px; }
+  .code-inputs input {
+    width: 64px; height: 74px;
+    font-size: 2.2rem;
+    border-radius: 14px;
+  }
+  .btn { padding: 20px; font-size: 1.3rem; border-radius: 16px; }
+  .status-box .label { font-size: 0.9rem; }
+  .status-box .value { font-size: 1.3rem; }
+  .volume-group { padding: 16px 20px; }
+  .volume-group label { font-size: 1rem; }
+  .volume-val { font-size: 1rem; }
+  .info { font-size: 0.9rem; }
+  .btn-util { font-size: 1rem; padding: 14px; }
+}
 </style>
 </head>
 <body>
@@ -127,16 +196,29 @@ h1 { font-size: 1.5rem; margin-bottom: 6px; }
   </div>
 
   <p class="info">イヤホンの使用を推奨します 🎧<br>接続がうまくいかない場合はコードを確認してください</p>
+
+  <!-- ロック & 全画面ボタン -->
+  <div class="util-buttons" id="util-buttons">
+    <button class="btn-util" id="btn-fullscreen" onclick="toggleFullscreen()">
+      📺 全画面
+    </button>
+    <button class="btn-util" id="btn-lock" onclick="toggleLock()">
+      🔒 ロック
+    </button>
+  </div>
+</div>
+
+<!-- ロック中のオーバーレイ -->
+<div class="lock-overlay" id="lock-overlay" style="display:none;">
+  <div class="lock-message">
+    🔒 画面ロック中<br>
+    <span class="lock-sub">解除するには長押し（1秒）</span>
+  </div>
 </div>
 
 <audio id="audio" autoplay playsinline></audio>
 
 <script>
-// ========================================
-// GASテンプレートから渡されるルームコード
-// ========================================
-var INITIAL_ROOM = '<?= room ?>';
-
 // ---- コード入力の自動フォーカス移動 ----
 var codeInputs = document.querySelectorAll('#code-inputs input');
 codeInputs.forEach(function(inp, i) {
@@ -173,6 +255,9 @@ function connectToHost() {
   document.getElementById('status').innerHTML =
     '<span class="dot dot-waiting"></span>接続中...';
 
+  // ユーティリティボタンを表示
+  document.getElementById('util-buttons').style.display = 'flex';
+
   var hostPeerId = 'campus-tour-' + code;
   peer = new Peer();
 
@@ -184,7 +269,6 @@ function connectToHost() {
   }, 10000);
 
   peer.on('open', function() {
-    // サイレントダミーストリームを生成して発信
     var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     var oscillator = audioCtx.createOscillator();
     var gain = audioCtx.createGain();
@@ -241,6 +325,7 @@ function connectToHost() {
 function showRetry() {
   document.getElementById('connected-section').classList.add('hidden');
   document.getElementById('connect-section').classList.remove('hidden');
+  document.getElementById('util-buttons').style.display = 'none';
   var btn = document.getElementById('btn-connect');
   btn.disabled = false;
   btn.textContent = '🔗 接続する';
@@ -253,6 +338,16 @@ function disconnect() {
 
   document.getElementById('connected-section').classList.add('hidden');
   document.getElementById('connect-section').classList.remove('hidden');
+  document.getElementById('util-buttons').style.display = 'none';
+
+  // 全画面を解除
+  if (document.fullscreenElement || document.webkitFullscreenElement) {
+    if (document.exitFullscreen) document.exitFullscreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+  }
+  document.getElementById('btn-fullscreen').classList.remove('active');
+  document.getElementById('btn-fullscreen').innerHTML = '📺 全画面';
+
   var btn = document.getElementById('btn-connect');
   btn.disabled = false;
   btn.textContent = '🔗 接続する';
@@ -264,12 +359,91 @@ function changeVolume(val) {
   document.getElementById('volume-val').textContent = val + '%';
 }
 
+// ===========================
+// 全画面モード
+// ===========================
+function toggleFullscreen() {
+  var btn = document.getElementById('btn-fullscreen');
+  var elem = document.documentElement;
+
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    // 全画面にする
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen();
+    } else if (elem.webkitRequestFullscreen) {
+      elem.webkitRequestFullscreen();
+    }
+    btn.innerHTML = '✕ 全画面解除';
+    btn.classList.add('active');
+  } else {
+    // 全画面を解除
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    }
+    btn.innerHTML = '📺 全画面';
+    btn.classList.remove('active');
+  }
+}
+
+// ブラウザ側で全画面解除されたときの同期
+document.addEventListener('fullscreenchange', syncFullscreenBtn);
+document.addEventListener('webkitfullscreenchange', syncFullscreenBtn);
+function syncFullscreenBtn() {
+  var btn = document.getElementById('btn-fullscreen');
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    btn.innerHTML = '📺 全画面';
+    btn.classList.remove('active');
+  }
+}
+
+// ===========================
+// 画面ロック機能
+// ===========================
+var isLocked = false;
+var lockTimer = null;
+var overlay = document.getElementById('lock-overlay');
+
+function toggleLock() {
+  isLocked = true;
+  overlay.style.display = 'flex';
+}
+
+// スマホ用（タッチ長押しで解除）
+overlay.addEventListener('touchstart', function(e) {
+  e.preventDefault();
+  lockTimer = setTimeout(function() {
+    isLocked = false;
+    overlay.style.display = 'none';
+  }, 1000);
+});
+overlay.addEventListener('touchend', function() {
+  clearTimeout(lockTimer);
+});
+overlay.addEventListener('touchcancel', function() {
+  clearTimeout(lockTimer);
+});
+
+// PC用（マウス長押しで解除）
+overlay.addEventListener('mousedown', function() {
+  lockTimer = setTimeout(function() {
+    isLocked = false;
+    overlay.style.display = 'none';
+  }, 1000);
+});
+overlay.addEventListener('mouseup', function() {
+  clearTimeout(lockTimer);
+});
+
 // ========================================
-// 自動接続: GASからルームコードが渡された場合
+// 自動接続: URLパラメータからルームコード取得
 // ========================================
 window.addEventListener('DOMContentLoaded', function() {
-  if (INITIAL_ROOM && INITIAL_ROOM.length === 4 && /^\d{4}$/.test(INITIAL_ROOM)) {
-    var digits = INITIAL_ROOM.split('');
+  var params = new URLSearchParams(window.location.search);
+  var room = params.get('room') || '';
+  if (room.length === 4 && /^\d{4}$/.test(room)) {
+    var digits = room.split('');
     codeInputs.forEach(function(inp, i) { inp.value = digits[i] || ''; });
     connectToHost();
   }
