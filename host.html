@@ -3,9 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎤 キャンパスツアー配信</title>
+<title>🎤 キャンパスツアー</title>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body {
@@ -252,19 +251,11 @@ function setupPeer() {
   var peerId = 'campus-tour-' + roomCode;
 
   // ★ QRコードを先に生成（PeerJS接続を待たない）
-  var listenerURL = window.location.href.split('?')[0].replace('host.html', 'listener.html') + '?room=' + roomCode;
-  var qrImg = document.getElementById('qr-img');
-  QRCode.toDataURL(listenerURL, {
-    width: 164, margin: 1,
-    color: { dark: '#1a1a2e', light: '#ffffff' }
-  }, function(err, url) {
-    if (err) {
-      console.error('QR生成エラー:', err);
-      return;
-    }
-    qrImg.src = url;
+  
+var listenerURL = window.location.href.split('?')[0].replace('host.html', 'listener.html') + '?room=' + roomCode;
+    var qrImg = document.getElementById('qr-img');
+    qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(listenerURL);
     qrImg.style.display = 'block';
-  });
 
   peer = new Peer(peerId);
 
