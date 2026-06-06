@@ -100,6 +100,57 @@ h1 { font-size: 1.5rem; margin-bottom: 6px; }
 @keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.3; } }
 
 .info { font-size: 0.75rem; opacity: 0.5; margin-top: 12px; line-height: 1.5; }
+
+  /* ===== スマホ表示を大きく ===== */
+@media (max-width: 600px) {
+  body {
+    padding: 10px;
+  }
+  .card {
+    padding: 28px 20px;
+    border-radius: 20px;
+  }
+  h1 {
+    font-size: 1.8rem;
+  }
+  .subtitle {
+    font-size: 1rem;
+  }
+  .room-code {
+    font-size: 3.5rem;
+  }
+  .room-code-label {
+    font-size: 1rem;
+  }
+  #qr-img {
+    width: 220px;
+    height: 220px;
+  }
+  .btn {
+    padding: 20px;
+    font-size: 1.3rem;
+    border-radius: 16px;
+  }
+  .btn-mute {
+    padding: 16px;
+    font-size: 1.15rem;
+  }
+  .status-item .label {
+    font-size: 0.9rem;
+  }
+  .status-item .value {
+    font-size: 1.6rem;
+  }
+  .info {
+    font-size: 0.9rem;
+  }
+  .visualizer {
+    height: 60px;
+  }
+  .visualizer .bar {
+    width: 8px;
+  }
+}
 </style>
 </head>
 <body>
