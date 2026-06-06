@@ -206,6 +206,7 @@ function setupPeer() {
       qrImg.src = url;
       qrImg.style.display = 'block'
     });
+    });
 
   peer.on('call', function(call) {
     call.answer(localStream);
