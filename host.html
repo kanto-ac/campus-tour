@@ -138,15 +138,6 @@ function generateCode() {
   return String(Math.floor(1000 + Math.random() * 9000));
 }
 
-function getBaseUrl() {
-  // GAS デプロイURLの取得: "https://script.google.com/.../exec?..."
-  var url = window.location.href;
-  // Google Apps Script の iframe 内では google.script.run 経由も使えるが、
-  // GAS Web App は /exec または /dev で終わるURLを持つ
-  // 最もシンプルな方法: URL からクエリパラメータを除去
-  return url.split('?')[0];
-}
-
 function toggleBroadcast() {
   if (!broadcasting) startBroadcast();
   else stopBroadcast();
@@ -196,8 +187,8 @@ function setupPeer() {
       '<span class="dot dot-live"></span>配信中';
 
     // QRコード生成（リスナーURL）
-    var baseUrl = getBaseUrl();
-    var listenerURL = baseUrl + '?page=listener&room=' + roomCode;
+    var listenerURL = window.location.href.split('?')
+    [0].replace('host.html','listener.html') + '?room=' + roomCode;
     var qrImg = document.getElementById('qr-img');
     QRCode.toDataURL(listenerURL, {
       width: 164, margin: 1,
