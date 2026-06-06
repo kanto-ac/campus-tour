@@ -100,55 +100,56 @@ h1 { font-size: 1.5rem; margin-bottom: 6px; }
 
 .info { font-size: 0.75rem; opacity: 0.5; margin-top: 12px; line-height: 1.5; }
 
-  /* ===== スマホ表示を大きく ===== */
+/* ===== 画面ロック ===== */
+.btn-lock {
+  width: 100%; padding: 12px; border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 14px; font-size: 0.95rem; font-weight: 700;
+  cursor: pointer; margin-top: 12px;
+  background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6);
+  display: none; align-items: center; justify-content: center; gap: 8px;
+  transition: all 0.3s ease;
+}
+.btn-lock:hover { background: rgba(255,255,255,0.15); }
+
+.lock-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex; justify-content: center; align-items: center;
+  user-select: none; -webkit-user-select: none;
+  cursor: pointer;
+}
+.lock-message {
+  color: #fff; text-align: center;
+  font-size: 1.8rem; font-weight: 700;
+  animation: lock-pulse 2s infinite;
+}
+.lock-sub {
+  font-size: 1rem; font-weight: 400; opacity: 0.6;
+  display: block; margin-top: 12px;
+}
+@keyframes lock-pulse {
+  0%,100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ===== スマホ表示を大きく ===== */
 @media (max-width: 600px) {
-  body {
-    padding: 10px;
-  }
-  .card {
-    padding: 28px 20px;
-    border-radius: 20px;
-  }
-  h1 {
-    font-size: 1.8rem;
-  }
-  .subtitle {
-    font-size: 1rem;
-  }
-  .room-code {
-    font-size: 3.5rem;
-  }
-  .room-code-label {
-    font-size: 1rem;
-  }
-  #qr-img {
-    width: 220px;
-    height: 220px;
-  }
-  .btn {
-    padding: 20px;
-    font-size: 1.3rem;
-    border-radius: 16px;
-  }
-  .btn-mute {
-    padding: 16px;
-    font-size: 1.15rem;
-  }
-  .status-item .label {
-    font-size: 0.9rem;
-  }
-  .status-item .value {
-    font-size: 1.6rem;
-  }
-  .info {
-    font-size: 0.9rem;
-  }
-  .visualizer {
-    height: 60px;
-  }
-  .visualizer .bar {
-    width: 8px;
-  }
+  body { padding: 10px; }
+  .card { padding: 28px 20px; border-radius: 20px; }
+  h1 { font-size: 1.8rem; }
+  .subtitle { font-size: 1rem; }
+  .room-code { font-size: 3.5rem; }
+  .room-code-label { font-size: 1rem; }
+  #qr-img { width: 220px; height: 220px; }
+  .btn { padding: 20px; font-size: 1.3rem; border-radius: 16px; }
+  .btn-mute { padding: 16px; font-size: 1.15rem; }
+  .status-item .label { font-size: 0.9rem; }
+  .status-item .value { font-size: 1.6rem; }
+  .info { font-size: 0.9rem; }
+  .visualizer { height: 60px; }
+  .visualizer .bar { width: 8px; }
 }
 </style>
 </head>
@@ -189,6 +190,18 @@ h1 { font-size: 1.5rem; margin-bottom: 6px; }
     参加者に「ルームコード」または「QRコード」を共有してください。<br>
     参加者はイヤホン推奨です 🎧
   </p>
+
+  <button class="btn-lock" id="btn-lock" onclick="toggleLock()">
+    🔒 画面ロック
+  </button>
+</div>
+
+<!-- ロック中のオーバーレイ -->
+<div class="lock-overlay" id="lock-overlay" style="display:none;">
+  <div class="lock-message">
+    🔒 画面ロック中<br>
+    <span class="lock-sub">解除するには長押し（1秒）</span>
+  </div>
 </div>
 
 <script>
@@ -245,17 +258,17 @@ function setupAudio(stream) {
   source.connect(analyser);
   drawVisualizer();
 }
+
 function setupPeer() {
   var roomCode = generateCode();
   document.getElementById('room-code').textContent = roomCode;
   var peerId = 'campus-tour-' + roomCode;
 
-  // ★ QRコードを先に生成（PeerJS接続を待たない）
-  
-var listenerURL = window.location.href.split('?')[0].replace('host.html', 'listener.html') + '?room=' + roomCode;
-    var qrImg = document.getElementById('qr-img');
-    qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(listenerURL);
-    qrImg.style.display = 'block';
+  // QRコードを先に生成（PeerJS接続を待たない）
+  var listenerURL = window.location.href.split('?')[0].replace('host.html', 'listener.html') + '?room=' + roomCode;
+  var qrImg = document.getElementById('qr-img');
+  qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(listenerURL);
+  qrImg.style.display = 'block';
 
   peer = new Peer(peerId);
 
@@ -269,6 +282,7 @@ var listenerURL = window.location.href.split('?')[0].replace('host.html', 'liste
       '<span class="dot dot-live"></span>配信中';
 
     document.getElementById('btn-mute').style.display = 'flex';
+    document.getElementById('btn-lock').style.display = 'flex';
   });
 
   peer.on('call', function(call) {
@@ -339,6 +353,8 @@ function stopBroadcast() {
   muteBtn.innerHTML = '🔇 ミュート';
   muteBtn.classList.remove('btn-muted');
 
+  document.getElementById('btn-lock').style.display = 'none';
+
   document.getElementById('status').innerHTML =
     '<span class="dot dot-waiting"></span>待機中';
   document.getElementById('listener-count').textContent = '0';
@@ -369,6 +385,44 @@ function drawVisualizer() {
   }
   draw();
 }
+
+// ===========================
+// 画面ロック機能
+// ===========================
+var isLocked = false;
+var lockTimer = null;
+var overlay = document.getElementById('lock-overlay');
+
+function toggleLock() {
+  isLocked = true;
+  overlay.style.display = 'flex';
+}
+
+// スマホ用（タッチ長押しで解除）
+overlay.addEventListener('touchstart', function(e) {
+  e.preventDefault();
+  lockTimer = setTimeout(function() {
+    isLocked = false;
+    overlay.style.display = 'none';
+  }, 1000);
+});
+overlay.addEventListener('touchend', function() {
+  clearTimeout(lockTimer);
+});
+overlay.addEventListener('touchcancel', function() {
+  clearTimeout(lockTimer);
+});
+
+// PC用（マウス長押しで解除）
+overlay.addEventListener('mousedown', function() {
+  lockTimer = setTimeout(function() {
+    isLocked = false;
+    overlay.style.display = 'none';
+  }, 1000);
+});
+overlay.addEventListener('mouseup', function() {
+  clearTimeout(lockTimer);
+});
 </script>
 </body>
 </html>
