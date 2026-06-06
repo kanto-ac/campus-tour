@@ -246,11 +246,25 @@ function setupAudio(stream) {
   source.connect(analyser);
   drawVisualizer();
 }
-
 function setupPeer() {
   var roomCode = generateCode();
   document.getElementById('room-code').textContent = roomCode;
   var peerId = 'campus-tour-' + roomCode;
+
+  // ★ QRコードを先に生成（PeerJS接続を待たない）
+  var listenerURL = window.location.href.split('?')[0].replace('host.html', 'listener.html') + '?room=' + roomCode;
+  var qrImg = document.getElementById('qr-img');
+  QRCode.toDataURL(listenerURL, {
+    width: 164, margin: 1,
+    color: { dark: '#1a1a2e', light: '#ffffff' }
+  }, function(err, url) {
+    if (err) {
+      console.error('QR生成エラー:', err);
+      return;
+    }
+    qrImg.src = url;
+    qrImg.style.display = 'block';
+  });
 
   peer = new Peer(peerId);
 
@@ -264,16 +278,6 @@ function setupPeer() {
       '<span class="dot dot-live"></span>配信中';
 
     document.getElementById('btn-mute').style.display = 'flex';
-
-    var listenerURL = window.location.href.split('?')[0].replace('host.html', 'listener.html') + '?room=' + roomCode;
-    var qrImg = document.getElementById('qr-img');
-    QRCode.toDataURL(listenerURL, {
-      width: 164, margin: 1,
-      color: { dark: '#1a1a2e', light: '#ffffff' }
-    }, function(err, url) {
-      qrImg.src = url;
-      qrImg.style.display = 'block';
-    });
   });
 
   peer.on('call', function(call) {
