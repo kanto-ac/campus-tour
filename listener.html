@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  display: flex; justify-content: center; align-items: center;
+  padding: 20px; color: #fff;
+}
+.card {
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-radius: 24px;
+  padding: 32px 28px;
+  max-width: 420px; width: 100%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.18);
+  text-align: center;
+}
+h1 { font-size: 1.5rem; margin-bottom: 6px; }
+.subtitle { font-size: 0.85rem; opacity: 0.8; margin-bottom: 28px; }
+
+.input-group { margin-bottom: 24px; }
+.input-group label {
+  display: block; font-size: 0.85rem; margin-bottom: 10px; opacity: 0.8;
+}
+.code-inputs { display: flex; justify-content: center; gap: 10px; }
+.code-inputs input {
+  width: 56px; height: 64px; text-align: center;
+  font-size: 1.8rem; font-weight: 700;
+  font-family: 'Courier New', monospace;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.15);
+  color: #fff; outline: none;
+  transition: border 0.3s;
+}
+.code-inputs input:focus {
+  border-color: #fff;
+  background: rgba(255,255,255,0.25);
+}
+.code-inputs input::placeholder { color: rgba(255,255,255,0.3); }
+
+.btn {
+  width: 100%; padding: 16px; border: none; border-radius: 14px;
+  font-size: 1.1rem; font-weight: 700; cursor: pointer;
+  transition: all 0.3s ease; margin-bottom: 16px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-connect { background: #fff; color: #11998e; }
+.btn-connect:hover { background: #e0ffe0; transform: translateY(-2px); }
+.btn-disconnect { background: #ff4757; color: #fff; }
+.btn-disconnect:hover { background: #ff6b81; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.status-box {
+  background: rgba(0,0,0,0.2); border-radius: 12px;
+  padding: 16px; margin-bottom: 20px;
+}
+.status-box .label { font-size: 0.75rem; opacity: 0.6; margin-bottom: 4px; }
+.status-box .value { font-size: 1.1rem; font-weight: 600; }
+
+.volume-group {
+  display: flex; align-items: center; gap: 12px;
+  background: rgba(0,0,0,0.15); border-radius: 12px;
+  padding: 14px 18px; margin-bottom: 20px;
+}
+.volume-group label { font-size: 0.85rem; white-space: nowrap; }
+.volume-group input[type=range] { flex: 1; accent-color: #fff; height: 6px; }
+.volume-val { font-size: 0.85rem; font-weight: 700; min-width: 36px; }
+
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+.dot-waiting { background: #ffa502; animation: pulse 1.5s infinite; }
+.dot-connected { background: #2ed573; animation: pulse 0.8s infinite; }
+.dot-error { background: #ff4757; }
+@keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.3; } }
+
+.emoji-big { font-size: 4rem; margin-bottom: 16px; }
+.info { font-size: 0.75rem; opacity: 0.5; margin-top: 8px; line-height: 1.5; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="emoji-big">🎧</div>
+  <h1>キャンパスツアー視聴</h1>
+  <p class="subtitle">ガイドの声をスマホで聞こう</p>
+
+  <!-- 接続前 -->
+  <div id="connect-section">
+    <div class="input-group">
+      <label>ルームコードを入力（4桁）</label>
+      <div class="code-inputs" id="code-inputs">
+        <input type="tel" maxlength="1" placeholder="0">
+        <input type="tel" maxlength="1" placeholder="0">
+        <input type="tel" maxlength="1" placeholder="0">
+        <input type="tel" maxlength="1" placeholder="0">
+      </div>
+    </div>
+    <button class="btn btn-connect" id="btn-connect" onclick="connectToHost()">
+      🔗 接続する
+    </button>
+  </div>
+
+  <!-- 接続後 -->
+  <div id="connected-section" class="hidden">
+    <div class="status-box">
+      <div class="label">ステータス</div>
+      <div class="value" id="status"><span class="dot dot-waiting"></span>接続中...</div>
+    </div>
+
+    <div class="volume-group">
+      <label>🔊 音量</label>
+      <input type="range" id="volume" min="0" max="100" value="80"
+             oninput="changeVolume(this.value)">
+      <span class="volume-val" id="volume-val">80%</span>
+    </div>
+
+    <button class="btn btn-disconnect" onclick="disconnect()">
+      ✕ 切断する
+    </button>
+  </div>
+
+  <p class="info">イヤホンの使用を推奨します 🎧<br>接続がうまくいかない場合はコードを確認してください</p>
+</div>
+
+<audio id="audio" autoplay playsinline></audio>
+
+<script>
+// ========================================
+// GASテンプレートから渡されるルームコード
+// ========================================
+var INITIAL_ROOM = '<?= room ?>';
+
+// ---- コード入力の自動フォーカス移動 ----
+var codeInputs = document.querySelectorAll('#code-inputs input');
+codeInputs.forEach(function(inp, i) {
+  inp.addEventListener('input', function() {
+    inp.value = inp.value.replace(/\D/g, '').slice(-1);
+    if (inp.value && i < 3) codeInputs[i + 1].focus();
+    if (getCode().length === 4) document.getElementById('btn-connect').focus();
+  });
+  inp.addEventListener('keydown', function(e) {
+    if (e.key === 'Backspace' && !inp.value && i > 0) codeInputs[i - 1].focus();
+  });
+});
+
+function getCode() {
+  return Array.from(codeInputs).map(function(i) { return i.value; }).join('');
+}
+
+var peer = null;
+var currentCall = null;
+
+function connectToHost() {
+  var code = getCode();
+  if (code.length !== 4) {
+    alert('4桁のルームコードを入力してください');
+    return;
+  }
+
+  var btn = document.getElementById('btn-connect');
+  btn.disabled = true;
+  btn.textContent = '⏳ 接続中...';
+
+  document.getElementById('connect-section').classList.add('hidden');
+  document.getElementById('connected-section').classList.remove('hidden');
+  document.getElementById('status').innerHTML =
+    '<span class="dot dot-waiting"></span>接続中...';
+
+  var hostPeerId = 'campus-tour-' + code;
+  peer = new Peer();
+
+  // タイムアウト（10秒）
+  var timeout = setTimeout(function() {
+    document.getElementById('status').innerHTML =
+      '<span class="dot dot-error"></span>タイムアウト — コードを確認してください';
+    showRetry();
+  }, 10000);
+
+  peer.on('open', function() {
+    // サイレントダミーストリームを生成して発信
+    var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    var oscillator = audioCtx.createOscillator();
+    var gain = audioCtx.createGain();
+    gain.gain.value = 0;
+    oscillator.connect(gain);
+    var dest = audioCtx.createMediaStreamDestination();
+    gain.connect(dest);
+    oscillator.start();
+    var dummyStream = dest.stream;
+
+    var call = peer.call(hostPeerId, dummyStream);
+    currentCall = call;
+
+    call.on('stream', function(remoteStream) {
+      clearTimeout(timeout);
+      var audio = document.getElementById('audio');
+      audio.srcObject = remoteStream;
+      audio.volume = document.getElementById('volume').value / 100;
+      audio.play().catch(function() {});
+
+      document.getElementById('status').innerHTML =
+        '<span class="dot dot-connected"></span>接続済み — ガイドの声が聞こえます 🎤';
+    });
+
+    call.on('close', function() {
+      document.getElementById('status').innerHTML =
+        '<span class="dot dot-error"></span>配信が終了しました';
+      showRetry();
+    });
+
+    call.on('error', function(err) {
+      clearTimeout(timeout);
+      console.error(err);
+      document.getElementById('status').innerHTML =
+        '<span class="dot dot-error"></span>接続エラー';
+      showRetry();
+    });
+  });
+
+  peer.on('error', function(err) {
+    clearTimeout(timeout);
+    console.error('Peer error:', err);
+    if (err.type === 'peer-unavailable') {
+      document.getElementById('status').innerHTML =
+        '<span class="dot dot-error"></span>ルームが見つかりません — コードを確認してください';
+    } else {
+      document.getElementById('status').innerHTML =
+        '<span class="dot dot-error"></span>接続エラー: ' + err.type;
+    }
+    showRetry();
+  });
+}
+
+function showRetry() {
+  document.getElementById('connected-section').classList.add('hidden');
+  document.getElementById('connect-section').classList.remove('hidden');
+  var btn = document.getElementById('btn-connect');
+  btn.disabled = false;
+  btn.textContent = '🔗 接続する';
+}
+
+function disconnect() {
+  if (currentCall) currentCall.close();
+  if (peer) { peer.destroy(); peer = null; }
+  document.getElementById('audio').srcObject = null;
+
+  document.getElementById('connected-section').classList.add('hidden');
+  document.getElementById('connect-section').classList.remove('hidden');
+  var btn = document.getElementById('btn-connect');
+  btn.disabled = false;
+  btn.textContent = '🔗 接続する';
+  codeInputs.forEach(function(i) { i.value = ''; });
+}
+
+function changeVolume(val) {
+  document.getElementById('audio').volume = val / 100;
+  document.getElementById('volume-val').textContent = val + '%';
+}
+
+// ========================================
+// 自動接続: GASからルームコードが渡された場合
+// ========================================
+window.addEventListener('DOMContentLoaded', function() {
+  if (INITIAL_ROOM && INITIAL_ROOM.length === 4 && /^\d{4}$/.test(INITIAL_ROOM)) {
+    var digits = INITIAL_ROOM.split('');
+    codeInputs.forEach(function(inp, i) { inp.value = digits[i] || ''; });
+    connectToHost();
+  }
+});
+</script>
+</body>
+</html>
