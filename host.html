@@ -56,6 +56,24 @@ h1 { font-size: 1.5rem; margin-bottom: 6px; }
 .btn-stop:hover { background: #ff6b81; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
+.btn-mute {
+  width: 100%; padding: 13px; border: 2px solid rgba(255,255,255,0.25);
+  border-radius: 14px; font-size: 1rem; font-weight: 700;
+  cursor: pointer; transition: all 0.3s ease; margin-bottom: 16px;
+  display: none; align-items: center; justify-content: center; gap: 8px;
+  background: rgba(255,255,255,0.1); color: #fff;
+}
+.btn-mute:hover { background: rgba(255,255,255,0.2); transform: translateY(-2px); }
+.btn-muted {
+  background: rgba(255,165,2,0.35) !important;
+  border-color: #ffa502 !important;
+  animation: pulse-mute 1.5s infinite;
+}
+@keyframes pulse-mute {
+  0%,100% { box-shadow: 0 0 0 0 rgba(255,165,2,0.4); }
+  50% { box-shadow: 0 0 16px 4px rgba(255,165,2,0.25); }
+}
+
 .status-bar {
   display: flex; justify-content: space-around;
   background: rgba(0,0,0,0.2); border-radius: 12px;
@@ -78,6 +96,7 @@ h1 { font-size: 1.5rem; margin-bottom: 6px; }
 .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
 .dot-waiting { background: #ffa502; animation: pulse 1.5s infinite; }
 .dot-live { background: #2ed573; animation: pulse 0.8s infinite; }
+.dot-muted { background: #ffa502; animation: pulse 1s infinite; }
 @keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.3; } }
 
 .info { font-size: 0.75rem; opacity: 0.5; margin-top: 12px; line-height: 1.5; }
@@ -99,6 +118,10 @@ h1 { font-size: 1.5rem; margin-bottom: 6px; }
 
   <button class="btn btn-start" id="btn-toggle" onclick="toggleBroadcast()">
     ▶ 配信をスタート
+  </button>
+
+  <button class="btn-mute" id="btn-mute" onclick="toggleMute()">
+    🔇 ミュート
   </button>
 
   <div class="status-bar">
@@ -132,6 +155,7 @@ var bars = vizContainer.querySelectorAll('.bar');
 var peer = null;
 var localStream = null;
 var broadcasting = false;
+var isMuted = false;
 var activeCalls = [];
 var analyser = null;
 var animFrameId = null;
@@ -188,7 +212,8 @@ function setupPeer() {
     document.getElementById('status').innerHTML =
       '<span class="dot dot-live"></span>配信中';
 
-    // QRコード生成（リスナーURL — GitHub Pages用）
+    document.getElementById('btn-mute').style.display = 'flex';
+
     var listenerURL = window.location.href.split('?')[0].replace('host.html', 'listener.html') + '?room=' + roomCode;
     var qrImg = document.getElementById('qr-img');
     QRCode.toDataURL(listenerURL, {
@@ -198,7 +223,7 @@ function setupPeer() {
       qrImg.src = url;
       qrImg.style.display = 'block';
     });
-  }); // ← peer.on('open') の閉じカッコ
+  });
 
   peer.on('call', function(call) {
     call.answer(localStream);
@@ -222,10 +247,33 @@ function setupPeer() {
       stopBroadcast();
     }
   });
-} // ← setupPeer() の閉じカッコ
+}
+
+function toggleMute() {
+  if (!localStream) return;
+
+  isMuted = !isMuted;
+  localStream.getAudioTracks().forEach(function(track) {
+    track.enabled = !isMuted;
+  });
+
+  var btn = document.getElementById('btn-mute');
+  if (isMuted) {
+    btn.innerHTML = '🔊 ミュート解除';
+    btn.classList.add('btn-muted');
+    document.getElementById('status').innerHTML =
+      '<span class="dot dot-muted"></span>ミュート中';
+  } else {
+    btn.innerHTML = '🔇 ミュート';
+    btn.classList.remove('btn-muted');
+    document.getElementById('status').innerHTML =
+      '<span class="dot dot-live"></span>配信中';
+  }
+}
 
 function stopBroadcast() {
   broadcasting = false;
+  isMuted = false;
   if (localStream) {
     localStream.getTracks().forEach(function(t) { t.stop(); });
     localStream = null;
@@ -239,6 +287,11 @@ function stopBroadcast() {
   btn.className = 'btn btn-start';
   btn.innerHTML = '▶ 配信をスタート';
   btn.disabled = false;
+
+  var muteBtn = document.getElementById('btn-mute');
+  muteBtn.style.display = 'none';
+  muteBtn.innerHTML = '🔇 ミュート';
+  muteBtn.classList.remove('btn-muted');
 
   document.getElementById('status').innerHTML =
     '<span class="dot dot-waiting"></span>待機中';
@@ -261,6 +314,7 @@ function drawVisualizer() {
     for (var i = 0; i < NUM_BARS; i++) {
       var idx = Math.floor(i * data.length / NUM_BARS);
       var val = data[idx] || 0;
+      if (isMuted) val = 0;
       var h = Math.max(4, (val / 255) * 50);
       bars[i].style.height = h + 'px';
       var brightness = 0.3 + (val / 255) * 0.7;
