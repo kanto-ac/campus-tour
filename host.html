@@ -100,17 +100,26 @@ h1 { font-size: 1.5rem; margin-bottom: 6px; }
 
 .info { font-size: 0.75rem; opacity: 0.5; margin-top: 12px; line-height: 1.5; }
 
-/* ===== 画面ロック ===== */
-.btn-lock {
-  width: 100%; padding: 12px; border: 2px solid rgba(255,255,255,0.2);
-  border-radius: 14px; font-size: 0.95rem; font-weight: 700;
-  cursor: pointer; margin-top: 12px;
+/* ===== ユーティリティボタン（全画面・ロック） ===== */
+.btn-util-row {
+  display: none; gap: 10px; margin-top: 12px;
+}
+.btn-util {
+  flex: 1; padding: 12px; border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 14px; font-size: 0.9rem; font-weight: 700;
+  cursor: pointer;
   background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6);
-  display: none; align-items: center; justify-content: center; gap: 8px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
   transition: all 0.3s ease;
 }
-.btn-lock:hover { background: rgba(255,255,255,0.15); }
+.btn-util:hover { background: rgba(255,255,255,0.15); }
+.btn-util.active {
+  background: rgba(255,255,255,0.2);
+  border-color: rgba(255,255,255,0.4);
+  color: #fff;
+}
 
+/* ===== 画面ロック ===== */
 .lock-overlay {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(0,0,0,0.7);
@@ -150,6 +159,7 @@ h1 { font-size: 1.5rem; margin-bottom: 6px; }
   .info { font-size: 0.9rem; }
   .visualizer { height: 60px; }
   .visualizer .bar { width: 8px; }
+  .btn-util { font-size: 1rem; padding: 14px; }
 }
 </style>
 </head>
@@ -191,9 +201,14 @@ h1 { font-size: 1.5rem; margin-bottom: 6px; }
     参加者はイヤホン推奨です 🎧
   </p>
 
-  <button class="btn-lock" id="btn-lock" onclick="toggleLock()">
-    🔒 画面ロック
-  </button>
+  <div class="btn-util-row" id="util-buttons">
+    <button class="btn-util" id="btn-fullscreen" onclick="toggleFullscreen()">
+      📺 全画面
+    </button>
+    <button class="btn-util" id="btn-lock" onclick="toggleLock()">
+      🔒 ロック
+    </button>
+  </div>
 </div>
 
 <!-- ロック中のオーバーレイ -->
@@ -282,7 +297,7 @@ function setupPeer() {
       '<span class="dot dot-live"></span>配信中';
 
     document.getElementById('btn-mute').style.display = 'flex';
-    document.getElementById('btn-lock').style.display = 'flex';
+    document.getElementById('util-buttons').style.display = 'flex';
   });
 
   peer.on('call', function(call) {
@@ -353,7 +368,16 @@ function stopBroadcast() {
   muteBtn.innerHTML = '🔇 ミュート';
   muteBtn.classList.remove('btn-muted');
 
-  document.getElementById('btn-lock').style.display = 'none';
+  // ユーティリティボタンをリセット
+  document.getElementById('util-buttons').style.display = 'none';
+  document.getElementById('btn-fullscreen').classList.remove('active');
+  document.getElementById('btn-fullscreen').innerHTML = '📺 全画面';
+
+  // 全画面を解除
+  if (document.fullscreenElement || document.webkitFullscreenElement) {
+    if (document.exitFullscreen) document.exitFullscreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+  }
 
   document.getElementById('status').innerHTML =
     '<span class="dot dot-waiting"></span>待機中';
@@ -384,6 +408,43 @@ function drawVisualizer() {
     }
   }
   draw();
+}
+
+// ===========================
+// 全画面モード
+// ===========================
+function toggleFullscreen() {
+  var btn = document.getElementById('btn-fullscreen');
+  var elem = document.documentElement;
+
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen();
+    } else if (elem.webkitRequestFullscreen) {
+      elem.webkitRequestFullscreen();
+    }
+    btn.innerHTML = '✕ 全画面解除';
+    btn.classList.add('active');
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    }
+    btn.innerHTML = '📺 全画面';
+    btn.classList.remove('active');
+  }
+}
+
+// ブラウザ側で全画面解除されたときの同期
+document.addEventListener('fullscreenchange', syncFullscreenBtn);
+document.addEventListener('webkitfullscreenchange', syncFullscreenBtn);
+function syncFullscreenBtn() {
+  var btn = document.getElementById('btn-fullscreen');
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    btn.innerHTML = '📺 全画面';
+    btn.classList.remove('active');
+  }
 }
 
 // ===========================
